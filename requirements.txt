@@ -1,5 +1,4 @@
 altair
-arrow-cpp
 asttokens
 attrs
 aws-c-auth
