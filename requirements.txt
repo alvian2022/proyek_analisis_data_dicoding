@@ -105,7 +105,6 @@ prompt_toolkit
 protobuf
 psutil
 pure_eval
-pyarrow
 pydeck
 pygments
 pyparsing
