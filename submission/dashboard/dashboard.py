@@ -48,9 +48,9 @@ def load_data():
 day_df, hour_df = load_data()
 
 # Title and description
-st.title("🚲 Bike Sharing Visualization Dashboard")
+st.title("🚲 Bike Sharing Analysis Dashboard")
 st.markdown("""
-This dashboard provides visualizations of bike sharing data, exploring patterns and factors affecting bike rentals.
+This dashboard provides analysis of bike sharing data, exploring patterns and factors affecting bike rentals.
 """)
 
 # Show dataset info
@@ -137,8 +137,9 @@ with col4:
     registered_percentage = (filtered_day_df['registered'].sum() / total_rentals) * 100
     st.metric("Registered Riders", f"{registered_percentage:.1f}%")
 
-# Weather Impact Visualizations
-st.header("Weather Impact on Bike Rentals")
+# Question 1: How do weather conditions affect bike rentals?
+st.header("Question 1: How do weather conditions affect bike rentals?")
+st.markdown("This analysis examines the relationship between weather conditions and bike rental patterns.")
 
 # Create tabs for different visualizations
 tab1, tab2 = st.tabs(["Weather Impact", "Weather by Season"])
@@ -158,6 +159,13 @@ with tab1:
     )
     fig.update_layout(xaxis_title="Weather Condition", yaxis_title="Average Number of Rentals")
     st.plotly_chart(fig, use_container_width=True)
+    
+    st.write(f"""
+    **Observations:**
+    - Clear weather has the highest average rentals ({weather_analysis.loc[weather_analysis['weathersit_label'] == 'Clear', 'mean'].values[0]:.0f} bikes).
+    - Light Rain/Snow conditions have a significant negative impact on bike rentals, averaging only 1,803 rentals - approximately 63% lower than clear days.
+    - There's a {(weather_analysis.loc[weather_analysis['weathersit_label'] == 'Clear', 'mean'].values[0] - weather_analysis.loc[weather_analysis['weathersit_label'] == 'Mist/Cloudy', 'mean'].values[0]) / weather_analysis.loc[weather_analysis['weathersit_label'] == 'Clear', 'mean'].values[0] * 100:.1f}% decrease in rentals from Clear to Mist/Cloudy conditions.
+    """)
 
 with tab2:
     # Effect of weather across seasons
@@ -175,9 +183,19 @@ with tab2:
     )
     fig.update_layout(xaxis_title="Season", yaxis_title="Average Number of Rentals")
     st.plotly_chart(fig, use_container_width=True)
+    
+    best_season = seasonal_weather.loc[seasonal_weather['cnt'].idxmax()]
+    st.write(f"""
+    **Observations:**
+    - Weather conditions affect rentals differently across seasons.
+    - The highest average rentals occur during {best_season['season_label']} with {best_season['weathersit_label']} weather ({best_season['cnt']:.0f} bikes).
+    - The negative impact of Light Rain/Snow is evident across all seasons, but varies in magnitude.
+    - Even in bad weather, rentals remain relatively high during Summer compared to good weather in Winter.
+    """)
 
-# Hourly Patterns Visualizations
-st.header("Hourly Rental Patterns")
+# Question 2: What are the peak hours for bike rentals and how do they differ between weekdays and weekends?
+st.header("Question 2: What are the peak hours for bike rentals and how do they differ between weekdays and weekends?")
+st.markdown("This analysis examines hourly patterns and differences between weekdays and weekends.")
 
 # Create tabs for different visualizations
 tab1, tab2 = st.tabs(["Hourly Patterns", "User Type Analysis"])
@@ -202,6 +220,18 @@ with tab1:
         legend_title="Day Type"
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Find peak hours
+    weekday_peak = hourly_pattern[hourly_pattern['is_weekend'] == 'Weekday'].sort_values('cnt', ascending=False).iloc[0]
+    weekend_peak = hourly_pattern[hourly_pattern['is_weekend'] == 'Weekend'].sort_values('cnt', ascending=False).iloc[0]
+    
+    st.write(f"""
+    **Observations:**
+    - Weekdays show two distinct peak periods: morning (around {weekday_peak['hr']:.0f}:00) with {weekday_peak['cnt']:.0f} bikes and evening (17:00-18:00).
+    - Weekends show a different pattern with a single peak around {weekend_peak['hr']:.0f}:00 with {weekend_peak['cnt']:.0f} bikes.
+    -  Weekends maintain higher rental numbers throughout the midday period (11 AM to 5 PM).
+    - Early morning (midnight to 6 AM) shows minimal activity on both weekdays and weekends.
+    """)
 
 with tab2:
     # Hourly pattern by user type (casual vs. registered)
@@ -231,9 +261,18 @@ with tab2:
         legend_title="User Type / Day"
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    st.write("""
+    **Observations:**
+    - Registered users dominate overall rental volume, particularly on weekdays.
+    - Casual users show much more consistent patterns between weekdays and weekends.
+    - On weekends, registered users follow a single-peak pattern with maximum usage around midday (12-2 PM, ~240 rentals).
+    - Casual users' rentals increase gradually throughout the day, peaking in mid-afternoon.
+    - The weekday peaks for registered users are approximately 90% higher than their weekend peak.
+    """)
 
-# Seasonal and Monthly Trends
-st.header("Seasonal and Monthly Trends")
+# Additional Analysis
+st.header("Additional Analysis: Seasonal and Monthly Trends")
 
 # Create tabs for different visualizations
 tab1, tab2, tab3 = st.tabs(["Monthly Trends", "Seasonal User Trends", "Correlation Analysis"])
@@ -262,6 +301,26 @@ with tab1:
         legend_title="Year"
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Growth calculation
+    if ('2011' in year_filter) and ('2012' in year_filter):
+        yearly_avg = filtered_day_df.groupby('yr_label')['cnt'].mean()
+        growth = (yearly_avg['2012'] - yearly_avg['2011']) / yearly_avg['2011'] * 100
+        
+        st.write(f"""
+        **Observations:**
+        - There's a clear seasonal pattern with higher rentals in warmer months.
+        - 2012 shows consistently higher rental numbers compared to 2011, with approximately {growth:.1f}% growth.
+        - The peak rental months are June-September, while the lowest are December-February.
+        - This pattern suggests strong temperature and seasonality dependency in bike rentals.
+        """)
+    else:
+        st.write("""
+        **Observations:**
+        - There's a clear seasonal pattern with higher rentals in warmer months.
+        - The peak rental months are June-September, while the lowest are December-February.
+        - This pattern suggests strong temperature and seasonality dependency in bike rentals.
+        """)
 
 with tab2:
     # Seasonal user trends
@@ -290,6 +349,19 @@ with tab2:
         legend_title="User Type"
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Calculate seasonal variation
+    casual_var = seasonal_user['casual'].max() / seasonal_user['casual'].min()
+    registered_var = seasonal_user['registered'].max() / seasonal_user['registered'].min()
+    
+    st.write(f"""
+    **Observations:**
+    - Registered users significantly outnumber casual users across all seasons.
+    - Casual users show {casual_var:.1f}x variation between peak and low seasons, while registered users show {registered_var:.1f}x.
+    - Spring represents a significant low point for casual users.
+    - Casual users display greater seasonal sensitivity than registered users.
+    - Spring shows surprisingly low performance for both user types.
+    """)
 
 with tab3:
     # Correlation analysis
@@ -330,3 +402,103 @@ with tab3:
         yaxis=dict(range=[-1, 1])
     )
     st.plotly_chart(fig, use_container_width=True)
+    
+    st.write("""
+    **Observations:**
+    - Temperature is a major driver of bike rentals for all users.
+    - Windspeed has a more significant deterrent effect than humidity.
+    - Registered users show more consistent behavior patterns.
+    - Registered Users : Extremely high correlation (0.95) with total rentals, indicating registered users drive the majority of business.
+    - Casual Users: Strong correlation (0.67) with total rentals, but significantly less influential than registered users.
+    """)
+
+# Conclusions
+st.header("Conclusions and Recommendations")
+st.write("""
+### Key Findings
+
+#### The Impact of Weather on Bike Rentals
+
+- **Clear Weather Conditions** yield the highest average rentals (4,877 bikes/day)
+- **Light Rain/Snow** significantly decreases rentals (1,803 bikes/day, 63% lower than clear days)
+- **Mist/Cloudy** shows reasonably good performance (4,036 bikes/day, only 17% lower than clear days)
+- Data distribution is uneven: 463 clear days, 247 misty/cloudy days, and only 21 days with light rain/snow
+
+#### Seasonal and Weather Variations
+
+- **Fall Season** shows the highest rentals across all weather conditions
+- **Summer** shows strong performance, particularly on clear days
+- **Winter and Spring** generally have lower rental numbers
+- Clear weather consistently outperforms other weather conditions in all seasons
+- **Fall with Clear weather** combination shows the highest average rentals
+- **Light Rain/Snow in spring** shows the lowest rental performance
+
+#### Weekday vs Weekend Usage Patterns
+
+- **Weekdays**: Two distinct peak periods at 8 AM and 5-6 PM (510 and 470 rentals)
+- **Weekends**: A single broader peak spanning from around 11 AM to 5 PM (380 rentals)
+- The maximum weekday peak is about 34% higher than the weekend peak
+- Between 10 AM and 3 PM, weekend rentals substantially exceed weekday rentals
+- Early morning (midnight to 6 AM) shows minimal activity on both day types
+
+#### Behavior by User Type
+
+- **Registered Users**:
+  - Dominate overall rental volume, particularly on weekdays
+  - Show two distinct commuting peaks on weekdays (morning 440 rentals, evening 460 rentals)
+  - On weekends, follow a single-peak pattern (midday 240 rentals)
+- **Casual Users**:
+  - Show a single-peak pattern on both weekdays and weekends
+  - Weekend usage significantly exceeds weekday usage
+  - Peak rentals occur at 1-2 PM on weekends (140 rentals)
+  - Display a leisure-oriented pattern regardless of the day type
+
+#### Annual Growth
+
+- Substantial increase in average rentals from 2011 to 2012 across all months
+- Growth rate appears most significant in the earlier months (January-March)
+- 2011 peaks in June (~4,800 rentals), while 2012 peaks in September (~7,250 rentals)
+- The lowest rental periods occur in winter months (December-February)
+- The average increase is approximately 2,000 additional rentals in 2012
+
+#### Seasonal Patterns by User Type
+
+- **Registered Users**:
+  - Fall shows the highest average rentals (~4,400)
+  - Spring has the lowest rentals (~2,300)
+  - Winter and summer show similar performance (~4,000 rentals)
+- **Casual Users**:
+  - Fall and summer show the highest usage (~1,200 and ~1,100 respectively)
+  - Spring has the lowest usage (~300)
+  - Display greater seasonal sensitivity than registered users
+
+#### Correlations with Weather Variables
+
+- **Temperature**: Strong positive correlation (0.63) with total rentals
+- **Windspeed**: Negative correlation (-0.23) with rentals, confirming riders are deterred by windy conditions
+- **Humidity**: Slight negative correlation (-0.10) with rentals
+- **Casual Users** are more strongly affected by temperature (0.54) than registered users
+- **Registered Users** show stronger negative correlation with windspeed (-0.22)
+
+#### Business Implications
+
+1. **Differential Marketing Strategies**:
+   - Commuter programs for registered users on weekdays
+   - Recreational promotions for casual users, especially on weekends
+   - Special strategies to boost rentals on light rain days
+
+2. **Operational Planning**:
+   - Bike availability should be optimized differently for weekdays versus weekends
+   - Maintenance should be scheduled during low-demand periods (early morning hours)
+   - Staffing can be adjusted based on weather forecasts
+
+3. **Growth Opportunities**:
+   - Spring represents the greatest opportunity for growth initiatives
+   - The midday weekday period shows potential for growth through targeted promotions
+   - Conversion strategies from casual to registered should focus on summer and fall
+
+4. **Revenue Projections**:
+   - Revenue projections can be significantly influenced by seasonal weather patterns
+   - Registered users drive the majority of business (0.95 correlation with total rentals)
+   - Weather forecasting could be integrated into business planning"
+   """)
