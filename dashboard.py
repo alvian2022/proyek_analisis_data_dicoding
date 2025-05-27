@@ -3,9 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # Set page configuration
 st.set_page_config(
@@ -13,6 +10,8 @@ st.set_page_config(
     page_icon="🚲",
     layout="wide"
 )
+
+# Set matplotlib style to match original formatting
 
 # Function to load data
 @st.cache_data
@@ -137,196 +136,99 @@ with col4:
     registered_percentage = (filtered_day_df['registered'].sum() / total_rentals) * 100
     st.metric("Registered Riders", f"{registered_percentage:.1f}%")
 
-# Weather Impact Visualizations
-st.header("Weather Impact on Bike Rentals")
+# Business Question 1: Weather Impact Analysis
+st.header("1. How do weather conditions impact bike rentals across different seasons?")
 
-# Create tabs for different visualizations
-tab1, tab2 = st.tabs(["Weather Impact", "Weather by Season"])
+plt.figure(figsize=(12, 7))
+sns.boxplot(x='season_label', y='cnt', hue='weathersit_label', data=filtered_day_df)
+plt.title('Bike Rentals by Season and Weather Condition')
+plt.xlabel('Season')
+plt.ylabel('Number of Rentals')
+plt.xticks(rotation=0)
+plt.legend(title='Weather', loc='upper left')
+plt.tight_layout()
+st.pyplot(plt)
 
-with tab1:
-    # Average rentals by weather condition
-    weather_analysis = filtered_day_df.groupby('weathersit_label')['cnt'].agg(['mean', 'count']).reset_index()
-    
-    fig = px.bar(
-        weather_analysis, 
-        x='weathersit_label', 
-        y='mean',
-        color='weathersit_label',
-        labels={'weathersit_label': 'Weather Condition', 'mean': 'Average Rentals'},
-        title="Average Bike Rentals by Weather Condition",
-        text_auto='.0f'
-    )
-    fig.update_layout(xaxis_title="Weather Condition", yaxis_title="Average Number of Rentals")
-    st.plotly_chart(fig, use_container_width=True)
+# Business Question 2: Peak Hours Analysis
+st.header("2. What are the peak hours for bike rentals and how do they differ between weekdays and weekends?")
 
-with tab2:
-    # Effect of weather across seasons
-    seasonal_weather = filtered_day_df.groupby(['season_label', 'weathersit_label'])['cnt'].mean().reset_index()
-    
-    fig = px.bar(
-        seasonal_weather,
-        x='season_label',
-        y='cnt',
-        color='weathersit_label',
-        barmode='group',
-        labels={'season_label': 'Season', 'cnt': 'Average Rentals', 'weathersit_label': 'Weather'},
-        title="Average Bike Rentals by Season and Weather",
-        category_orders={"season_label": ["Winter", "Spring", "Summer", "Fall"]}
-    )
-    fig.update_layout(xaxis_title="Season", yaxis_title="Average Number of Rentals")
-    st.plotly_chart(fig, use_container_width=True)
+hourly_pattern = filtered_hour_df.groupby(['hr', 'is_weekend'])['cnt'].mean().reset_index()
+plt.figure(figsize=(12, 6))
+sns.lineplot(x='hr', y='cnt', hue='is_weekend', data=hourly_pattern, marker='o')
+plt.title('Average Hourly Bike Rentals: Weekdays vs. Weekends')
+plt.xlabel('Hour of Day')
+plt.ylabel('Average Number of Rentals')
+plt.xticks(range(0, 24))
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend(title='Day Type')
+plt.tight_layout()
+st.pyplot(plt)
 
-# Hourly Patterns Visualizations
-st.header("Hourly Rental Patterns")
+# Business Question 3: User Type Analysis
+st.header("3. How do usage patterns differ between casual and registered users throughout the day?")
 
-# Create tabs for different visualizations
-tab1, tab2 = st.tabs(["Hourly Patterns", "User Type Analysis"])
+hourly_by_user = filtered_hour_df.groupby(['hr', 'is_weekend'])[['casual', 'registered']].mean().reset_index()
+hourly_by_user_melted = pd.melt(hourly_by_user,
+                                id_vars=['hr', 'is_weekend'],
+                                value_vars=['casual', 'registered'],
+                                var_name='user_type',
+                                value_name='avg_count')
 
-with tab1:
-    # Hourly rental patterns - weekday vs weekend
-    hourly_pattern = filtered_hour_df.groupby(['hr', 'is_weekend'])['cnt'].mean().reset_index()
-    
-    fig = px.line(
-        hourly_pattern, 
-        x='hr', 
-        y='cnt', 
-        color='is_weekend',
-        labels={'hr': 'Hour of Day', 'cnt': 'Average Rentals', 'is_weekend': 'Day Type'},
-        title="Average Hourly Bike Rentals: Weekdays vs. Weekends",
-        markers=True
-    )
-    fig.update_layout(
-        xaxis=dict(tickmode='linear', dtick=1),
-        xaxis_title="Hour of Day (24-hour format)",
-        yaxis_title="Average Number of Rentals",
-        legend_title="Day Type"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+plt.figure(figsize=(14, 7))
+sns.lineplot(x='hr', y='avg_count', hue='user_type', style='is_weekend', data=hourly_by_user_melted, marker='o')
+plt.title('Average Hourly Bike Rentals by User Type: Weekdays vs. Weekends')
+plt.xlabel('Hour of Day')
+plt.ylabel('Average Number of Rentals')
+plt.xticks(range(0, 24))
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend(title='User Type / Day')
+plt.tight_layout()
+st.pyplot(plt)
 
-with tab2:
-    # Hourly pattern by user type (casual vs. registered)
-    hourly_user = filtered_hour_df.groupby(['hr', 'is_weekend'])[['casual', 'registered']].mean().reset_index()
-    hourly_user_melted = pd.melt(
-        hourly_user, 
-        id_vars=['hr', 'is_weekend'], 
-        value_vars=['casual', 'registered'],
-        var_name='user_type', 
-        value_name='avg_count'
-    )
-    
-    fig = px.line(
-        hourly_user_melted, 
-        x='hr', 
-        y='avg_count', 
-        color='user_type',
-        line_dash='is_weekend',
-        labels={'hr': 'Hour of Day', 'avg_count': 'Average Rentals', 'user_type': 'User Type', 'is_weekend': 'Day Type'},
-        title="Average Hourly Bike Rentals by User Type: Weekdays vs. Weekends",
-        markers=True
-    )
-    fig.update_layout(
-        xaxis=dict(tickmode='linear', dtick=1),
-        xaxis_title="Hour of Day (24-hour format)",
-        yaxis_title="Average Number of Rentals",
-        legend_title="User Type / Day"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+# Business Question 4: Monthly and Yearly Trends
+st.header("4. How do bike rentals fluctuate throughout the year and between different years?")
 
-# Seasonal and Monthly Trends
-st.header("Seasonal and Monthly Trends")
+monthly_trends = filtered_day_df.groupby(['mnth', 'yr_label'])['cnt'].mean().reset_index()
 
-# Create tabs for different visualizations
-tab1, tab2, tab3 = st.tabs(["Monthly Trends", "Seasonal User Trends", "Correlation Analysis"])
+plt.figure(figsize=(12, 6))
+sns.lineplot(x='mnth', y='cnt', hue='yr_label', data=monthly_trends, marker='o')
+plt.title('Average Monthly Bike Rentals by Year')
+plt.xlabel('Month')
+plt.ylabel('Average Number of Rentals')
+plt.xticks(range(1, 13), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend(title='Year')
+plt.tight_layout()
+st.pyplot(plt)
 
-with tab1:
-    # Monthly trends analysis
-    monthly_trends = filtered_day_df.groupby(['mnth', 'yr_label'])['cnt'].mean().reset_index()
-    
-    fig = px.line(
-        monthly_trends, 
-        x='mnth', 
-        y='cnt', 
-        color='yr_label',
-        labels={'mnth': 'Month', 'cnt': 'Average Rentals', 'yr_label': 'Year'},
-        title="Average Monthly Bike Rentals by Year",
-        markers=True
-    )
-    fig.update_layout(
-        xaxis=dict(
-            tickmode='array',
-            tickvals=list(range(1, 13)),
-            ticktext=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        ),
-        xaxis_title="Month",
-        yaxis_title="Average Number of Rentals",
-        legend_title="Year"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+# Seasonal User Analysis
+st.header("Average Seasonal Bike Rentals by User Type")
 
-with tab2:
-    # Seasonal user trends
-    seasonal_user = filtered_day_df.groupby('season_label')[['casual', 'registered', 'cnt']].mean().reset_index()
-    seasonal_user_melted = pd.melt(
-        seasonal_user, 
-        id_vars=['season_label'], 
-        value_vars=['casual', 'registered'],
-        var_name='user_type', 
-        value_name='avg_count'
-    )
-    
-    fig = px.bar(
-        seasonal_user_melted, 
-        x='season_label', 
-        y='avg_count', 
-        color='user_type',
-        barmode='group',
-        labels={'season_label': 'Season', 'avg_count': 'Average Rentals', 'user_type': 'User Type'},
-        title="Average Seasonal Bike Rentals by User Type",
-        category_orders={"season_label": ["Winter", "Spring", "Summer", "Fall"]}
-    )
-    fig.update_layout(
-        xaxis_title="Season",
-        yaxis_title="Average Number of Rentals",
-        legend_title="User Type"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+seasonal_user_trends = filtered_day_df.groupby('season_label')[['casual', 'registered', 'cnt']].mean().reset_index()
+seasonal_user_melted = pd.melt(seasonal_user_trends,
+                              id_vars=['season_label'],
+                              value_vars=['casual', 'registered'],
+                              var_name='user_type',
+                              value_name='avg_count')
 
-with tab3:
-    # Correlation analysis
-    corr_vars = ['temp', 'atemp', 'hum', 'windspeed', 'casual', 'registered', 'cnt']
-    correlation = filtered_day_df[corr_vars].corr()
-    
-    fig = px.imshow(
-        correlation,
-        labels=dict(x="Feature", y="Feature", color="Correlation"),
-        x=corr_vars,
-        y=corr_vars,
-        title="Correlation Matrix of Numerical Features",
-        color_continuous_scale='RdBu_r',
-        zmin=-1,
-        zmax=1
-    )
-    fig.update_layout(
-        width=700,
-        height=600
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Show correlation with rentals
-    corr_with_cnt = correlation['cnt'].sort_values(ascending=False).drop('cnt')
-    
-    fig = px.bar(
-        x=corr_with_cnt.index,
-        y=corr_with_cnt.values,
-        labels={'x': 'Feature', 'y': 'Correlation with Rentals'},
-        title="Features Correlation with Total Rentals",
-        color=corr_with_cnt.values,
-        color_continuous_scale='RdBu_r',
-        text_auto='.2f'
-    )
-    fig.update_layout(
-        xaxis_title="Feature",
-        yaxis_title="Correlation Coefficient",
-        yaxis=dict(range=[-1, 1])
-    )
-    st.plotly_chart(fig, use_container_width=True)
+plt.figure(figsize=(10, 6))
+sns.barplot(x='season_label', y='avg_count', hue='user_type', data=seasonal_user_melted)
+plt.title('Average Seasonal Bike Rentals by User Type')
+plt.xlabel('Season')
+plt.ylabel('Average Number of Rentals')
+plt.xticks(rotation=0)
+plt.legend(title='User Type')
+plt.tight_layout()
+st.pyplot(plt)
+
+# Correlation Analysis
+st.header("Correlation Analysis")
+
+correlation = filtered_day_df[['temp', 'atemp', 'hum', 'windspeed', 'casual', 'registered', 'cnt']].corr()
+
+# Correlation heatmap
+plt.figure(figsize=(12, 8))
+sns.heatmap(correlation, annot=True, cmap='coolwarm', fmt='.2f')
+plt.title('Correlation Matrix of Numerical Features')
+plt.tight_layout()
+st.pyplot(plt)
